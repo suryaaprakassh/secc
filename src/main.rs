@@ -1,17 +1,26 @@
-use std::{fs::File, io::Read};
+use common::Chunk;
+use opcode::OpCode;
+use vm::Vm;
 
-use sexc::lexer::Lexer;
+mod common;
+mod opcode;
+mod vm;
 
 fn main() {
-    let mut file = File::open("./test.sc").unwrap();
-    
-    let mut content = String::new();
+    let mut ck = Chunk::new();
+    let idx = ck.write_value(2.0);
+    ck.write_code(OpCode::Constant(idx));
+    ck.write_code(OpCode::Negate);
+    ck.write_code(OpCode::Return);
+    ck.dissassemble();
 
-    file.read_to_string(&mut content).unwrap();
-    
-    let mut tokenizer = Lexer::new(content);
-    
-    let tokens = tokenizer.lex();
-
-    println!("{:?}",tokens);
+    let mut vm = Vm::new(ck);
+    match vm.interpret() {
+        Ok(res) => {
+            println!("{:?}", res)
+        }
+        Err(_) => {
+            println!("Fked!")
+        }
+    }
 }
