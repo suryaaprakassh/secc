@@ -1,57 +1,35 @@
-use crate::opcode;
-use std::io::{Error, ErrorKind};
+use std::{env, fs, io::Read};
 
-pub struct Chunk {
-    pub code: Vec<opcode::OpCode>,
-    value_array: Vec<opcode::Value>,
-    value_idx: usize,
+pub struct File {
+    pub content: String,
+    pub path: String,
 }
 
-impl Chunk {
-    pub fn new() -> Self {
-        Chunk {
-            code: Vec::new(),
-            value_array: Vec::new(),
-            value_idx: 0,
+impl File {
+    pub fn get_ch(&self, idx: usize) -> Option<&u8> {
+        if idx < self.content.len() {
+            return self.content.as_bytes().get(idx);
         }
+        None
     }
-    pub fn write_code(&mut self, code: opcode::OpCode) {
-        self.code.push(code);
+}
+
+impl File {
+    pub fn new(content: String, path: String) -> Self {
+        Self { content, path }
     }
 
-    pub fn write_value(&mut self, value: opcode::Value) -> usize {
-        self.value_array.push(value);
-        self.value_idx += 1;
-        self.value_idx - 1
+    pub fn slice(&self, start: usize, end: usize) -> String {
+        self.content[start..end].to_string()
     }
+}
 
-    pub fn get_value(&self, idx: usize) -> Result<opcode::Value, std::io::Error> {
-        match self.value_array.get(idx) {
-            Some(val) => Ok(val.clone()),
-            None => Err(Error::new(ErrorKind::Other, format!("Value not found!"))),
-        }
-    }
-
-    pub fn dissassemble(&self) {
-        let mut idx: usize = 0;
-        for (_, op) in self.code.iter().enumerate() {
-            let (format_op, idx_inc) = self.format_opcode(op);
-            println!("{:04} {}", idx, format_op);
-            idx += idx_inc;
-        }
-    }
-
-    fn format_opcode(&self, op: &opcode::OpCode) -> (String, usize) {
-        use opcode::OpCode::*;
-        match op {
-            Constant(idx) => {
-                if let Some(val) = self.value_array.get(*idx) {
-                    (format!("{} {} ({})", op, idx, val), 2)
-                } else {
-                    (format!("{} {} ({})", op, idx, "Invalid Index"), 1)
-                }
-            }
-            _ => (format!("{}", op), 1),
-        }
-    }
+pub fn read_file() -> Result<File, std::io::Error> {
+    let file_name: Vec<String> = env::args().collect();
+    println!("Tried to Read {}", file_name[1]);
+    let mut file = fs::File::open(&file_name[1])?;
+    let mut content = String::new();
+    let n_bytes = file.read_to_string(&mut content)?;
+    println!("Read Bytes {n_bytes}");
+    Ok(File::new(content, file_name[1].to_owned()))
 }

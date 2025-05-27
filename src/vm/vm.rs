@@ -1,7 +1,5 @@
-#![allow(unused)]
-
-use crate::{
-    common::Chunk,
+use super::{
+    chunk::Chunk,
     opcode::{self, OpCode},
 };
 

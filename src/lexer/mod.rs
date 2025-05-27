@@ -1,4 +1,4 @@
-use crate::File;
+use crate::common::File;
 use crate::errors::LexerError;
 use crate::utils::KeyWordManager;
 
@@ -90,10 +90,10 @@ impl Lexer {
         while let Some(ch) = self.peek() {
             if ch.is_ascii_alphabetic() || *ch == b'_' {
                 self.advance();
-            }else{
+            } else {
                 break;
             }
-        } 
+        }
         let lexemme = self.file.slice(start, self.pos + 1);
         dbg!(lexemme);
         todo!("Not done yet alphabet!")
@@ -168,12 +168,12 @@ impl Lexer {
 
     pub fn parse(&mut self) -> Vec<Token> {
         while let Some(ch) = self.peek() {
-            if (ch.is_ascii_alphabetic() || *ch == b'_') {
+            if ch.is_ascii_alphabetic() || *ch == b'_' {
                 self.alphabet();
-            } else if (ch.is_ascii_digit()) {
+            } else if ch.is_ascii_digit() {
                 self.numeric();
             } else {
-                self.symbol();
+                let _ = self.symbol().unwrap();
             }
         }
         self.tokens.to_owned()
