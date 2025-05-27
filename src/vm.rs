@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use crate::{
     common::Chunk,
     opcode::{self, OpCode},
@@ -26,15 +28,35 @@ impl Vm {
         }
     }
 
+    fn handle_binary(&mut self, code: opcode::OpCode) {
+        match code {
+            OpCode::Add | OpCode::Sub | OpCode::Mult | OpCode::Div => {
+                let b = self.stack.pop().unwrap();
+                let a = self.stack.pop().unwrap();
+                let res = match code {
+                    OpCode::Add => a + b,
+                    OpCode::Sub => a - b,
+                    OpCode::Mult => a * b,
+                    OpCode::Div => a / b,
+                    _ => unreachable!(),
+                };
+                self.stack.push(res);
+            }
+            _ => {
+                panic!("Unexpected Token!")
+            }
+        }
+    }
+
     pub fn interpret(&mut self) -> VmResult {
         while self.ip < self.chunks.code.len() {
             self.run(self.chunks.code[self.ip])?;
-            self.ip+=1;
+            self.ip += 1;
         }
         Ok(InterpretRes::Ok)
     }
 
-    fn run(&mut self,code:opcode::OpCode) -> VmResult {
+    fn run(&mut self, code: opcode::OpCode) -> VmResult {
         use OpCode::*;
         match code {
             Return => return Ok(InterpretRes::Ok),
@@ -46,6 +68,9 @@ impl Vm {
             Negate => {
                 let val = self.stack.pop().unwrap();
                 self.stack.push(-1.0 * val);
+            }
+            _ => {
+                todo!("unimplemented")
             }
         }
         Ok(InterpretRes::Failed)
