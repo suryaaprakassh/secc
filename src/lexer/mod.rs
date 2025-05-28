@@ -1,71 +1,41 @@
+mod token;
+use crate::match_lex;
+use std::collections::HashMap;
+
 use crate::common::File;
 use crate::errors::LexerError;
-use crate::utils::KeyWordManager;
-
-macro_rules! match_lex {
-    ($producer:expr,$peek: expr ,$lft: expr ,$rht: expr) => {{
-        if matches!($producer, Some(x) if *x as char  == $peek){
-            $lft
-        } else {
-            $rht
-        }
-    }};
-}
-
-#[derive(Debug, Clone)]
-pub enum Token {
-    //operators
-    Plus,
-    Minus,
-    Multiply,
-    Divide,
-    Equal,
-    DoubleEqual,
-    Not,
-    BangEqual,
-    LessThan,
-    LessEqual,
-    GreaterThan,
-    GreaterEqual,
-    LeftParan,
-    RightParan,
-    LeftCurly,
-    RightCurly,
-    LeftSquare,
-    RightSquare,
-    Comma,
-    SemiColon,
-
-    //keywords
-    Let,
-    Const,
-    Func,
-    If,
-    For,
-    While,
-    Struct,
-
-    //Literals
-    Int(i32),
-    Float(f64),
-    String(String),
-}
+use crate::lexer::token::Token;
 pub struct Lexer {
     file: File,
     line_number: usize,
     pos: usize,
     tokens: Vec<Token>,
-    keyword_manager: KeyWordManager,
+    keywords: HashMap<String, Token>,
 }
 
 impl Lexer {
-    pub fn new(file: File, manager: KeyWordManager) -> Self {
+    pub fn new(file: File) -> Self {
+        let mut keywords: HashMap<String, Token> = HashMap::new();
+        keywords.insert("let".to_string(), Token::Let);
+        keywords.insert("const".to_string(), Token::Const);
+        keywords.insert("fn".to_string(), Token::Func);
+        keywords.insert("for".to_string(), Token::For);
+        keywords.insert("if".to_string(), Token::If);
+        keywords.insert("while".to_string(), Token::While);
+        keywords.insert("struct".to_string(), Token::Struct);
+
+        //types
+        keywords.insert("int".to_string(), Token::IntType);
+        keywords.insert("double".to_string(), Token::FloatType);
+        keywords.insert("char".to_string(), Token::CharType);
+        keywords.insert("string".to_string(), Token::StringType);
+
         Self {
             file,
-            line_number: 0,
+            line_number: 1,
             pos: 0,
             tokens: Vec::new(),
-            keyword_manager: manager,
+            keywords,
         }
     }
 
@@ -94,14 +64,54 @@ impl Lexer {
                 break;
             }
         }
-        let lexemme = self.file.slice(start, self.pos + 1);
-        dbg!(lexemme);
-        todo!("Not done yet alphabet!")
+        let lexemme = self.file.slice(start, self.pos);
+
+        if let Some(val) = self.keywords.get(&lexemme) {
+            self.tokens.push(val.clone());
+        } else {
+            self.tokens.push(Token::Identifer(lexemme))
+        }
     }
 
-    fn numeric(&mut self) {
-        self.advance().unwrap();
-        todo!()
+    fn numeric(&mut self) -> Result<(), LexerError> {
+        let mut is_float = false;
+        let mut digit: i32 = 0;
+        let mut mantisa: f64= 0.0;
+        while let Some(ch) = self.peek() {
+            if !ch.is_ascii_digit() && *ch != b'.' {
+                break;
+            }
+            match self.advance() {
+                Some(ch) => {
+                    if *ch == b'.' {
+                        if is_float {
+                            return Err(LexerError::new("Unknown symbol '.' expected a digit!"));
+                        }
+                        println!("Here!");
+                        is_float = true;
+                    }
+                    else if is_float {
+                        mantisa = (ch - 48) as f64; //48 ascii value of zero ig!
+                        mantisa /= 10.0;
+
+                    } else {
+                        digit = (digit * 10) + (ch - 48) as i32;
+                    }
+                }
+                None => {
+                    break;
+                }
+            }
+        }
+
+        if !is_float {
+            self.tokens.push(Token::Int(digit));
+            return Ok(());
+        }
+
+        let literal = digit as f64;
+        self.tokens.push(Token::Float(literal + mantisa));
+        return Ok(());
     }
 
     fn string_literal(&mut self) -> Result<Token, LexerError> {
@@ -113,10 +123,14 @@ impl Lexer {
                         break;
                     }
                 }
-                None => return Err(LexerError::new("Expected '\"' in line xx")),
+                None => {
+                    return Err(LexerError::new(
+                        format!("Expected '\"' in line {}", self.line_number).as_str(),
+                    ));
+                }
             }
         }
-        Ok(Token::String(self.file.slice(start, self.pos)))
+        Ok(Token::String(self.file.slice(start, self.pos-1)))
     }
 
     fn symbol(&mut self) -> Result<(), LexerError> {
@@ -134,16 +148,48 @@ impl Lexer {
                         }
                     }
                     '=' => {
-                        match_lex!(self.peek(), '=', Token::DoubleEqual, Token::Equal)
+                        match_lex!(
+                            self.peek(),
+                            '=',
+                            {
+                                self.advance();
+                                Token::DoubleEqual
+                            },
+                            { Token::Equal }
+                        )
                     }
                     '!' => {
-                        match_lex!(self.peek(), '=', Token::BangEqual, Token::Not)
+                        match_lex!(
+                            self.peek(),
+                            '=',
+                            {
+                                self.advance();
+                                Token::BangEqual
+                            },
+                            { Token::Not }
+                        )
                     }
                     '<' => {
-                        match_lex!(self.peek(), '=', Token::LessEqual, Token::LessThan)
+                        match_lex!(
+                            self.peek(),
+                            '=',
+                            {
+                                self.advance();
+                                Token::LessEqual
+                            },
+                            { Token::LessThan }
+                        )
                     }
                     '>' => {
-                        match_lex!(self.peek(), '=', Token::GreaterEqual, Token::GreaterThan)
+                        match_lex!(
+                            self.peek(),
+                            '=',
+                            {
+                                self.advance();
+                                Token::GreaterEqual
+                            },
+                            { Token::GreaterThan }
+                        )
                     }
                     '(' => Token::LeftParan,
                     ')' => Token::RightParan,
@@ -166,16 +212,122 @@ impl Lexer {
         }
     }
 
+    pub fn handle_whitespace(&mut self) {
+        if let Some(ch) = self.advance() {
+            match *ch as char {
+                '\n' | '\r' => {
+                    self.line_number += 1;
+                }
+                _ => {}
+            }
+        }
+    }
+
     pub fn parse(&mut self) -> Vec<Token> {
         while let Some(ch) = self.peek() {
             if ch.is_ascii_alphabetic() || *ch == b'_' {
                 self.alphabet();
             } else if ch.is_ascii_digit() {
-                self.numeric();
+                self.numeric().unwrap();
+            } else if ch.is_ascii_whitespace() {
+                self.handle_whitespace();
             } else {
-                let _ = self.symbol().unwrap();
+                self.symbol().unwrap();
             }
         }
         self.tokens.to_owned()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use Token::*;
+
+    #[test]
+    fn test_symbols() {
+        let file = File::get_mock_file("+-* = /==!=<<=>>=;,");
+        let mut lexer = Lexer::new(file);
+        let tokens = lexer.parse();
+        let check = vec![
+            Plus,
+            Minus,
+            Multiply,
+            Equal,
+            Divide,
+            DoubleEqual,
+            BangEqual,
+            LessThan,
+            LessEqual,
+            GreaterThan,
+            GreaterEqual,
+            SemiColon,
+            Comma,
+        ];
+        assert_eq!(tokens, check)
+    }
+
+    #[test]
+    fn test_line_number() {
+        let file = File::get_mock_file("+\n-\n*");
+        let mut lexer = Lexer::new(file);
+        let tokens = lexer.parse();
+        let check = vec![Plus, Minus, Multiply];
+        assert_eq!(tokens, check);
+        assert_eq!(lexer.line_number, 3)
+    }
+
+    #[test]
+    fn test_keywords() {
+        let file = File::get_mock_file("let fn if while for struct test");
+        let mut lexer = Lexer::new(file);
+        let tokens = lexer.parse();
+        let check = vec![
+            Let,
+            Func,
+            If,
+            While,
+            For,
+            Struct,
+            Identifer("test".to_string()),
+        ];
+        assert_eq!(tokens, check);
+        assert_eq!(lexer.line_number, 1)
+    }
+
+    #[test] 
+    fn test_string_literal() {
+        let file = File::get_mock_file(r#"let name = "test";"#);
+        let mut lexer = Lexer::new(file);
+        let tokens = lexer.parse();
+        let check = vec![
+            Let,
+            Identifer("name".to_string()),
+            Equal,
+            String("test".to_string()),
+            SemiColon
+        ];
+        assert_eq!(tokens, check);
+        assert_eq!(lexer.line_number, 1)
+    }
+
+    #[test]
+    fn test_expression() {
+        let file = File::get_mock_file("(2 * 2 ) + 69 *72.8");
+        let mut lexer = Lexer::new(file);
+        let tokens = lexer.parse();
+        let check = vec![
+            LeftParan,
+            Int(2),
+            Multiply,
+            Int(2),
+            RightParan,
+            Plus,
+            Int(69),
+            Multiply,
+            Float(72.8),
+        ];
+        assert_eq!(tokens, check);
+        assert_eq!(lexer.line_number, 1)
     }
 }

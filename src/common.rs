@@ -22,6 +22,13 @@ impl File {
     pub fn slice(&self, start: usize, end: usize) -> String {
         self.content[start..end].to_string()
     }
+
+    pub fn get_mock_file(content: &str) -> File {
+        File {
+            content: content.to_string(),
+            path: String::new(),
+        }
+    }
 }
 
 pub fn read_file() -> Result<File, std::io::Error> {

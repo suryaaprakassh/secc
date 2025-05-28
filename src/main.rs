@@ -1,9 +1,8 @@
-use sexc::{common::read_file, lexer::Lexer, utils::KeyWordManager};
+use sexc::{common::read_file, lexer::Lexer};
 
 fn main() {
     let file_content = read_file().expect("Fked!");
-    let keyword_manager = KeyWordManager::new();
-    let mut lexer = Lexer::new(file_content, keyword_manager);
+    let mut lexer = Lexer::new(file_content);
     let tokens = lexer.parse();
     dbg!(tokens);
     // let mut ck = Chunk::new();
